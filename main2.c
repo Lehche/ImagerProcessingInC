@@ -2,16 +2,16 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h> // For round() in equalization
+#include <math.h>
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
-#define BMP_TYPE 0x4D42          // 'BM' signature
-#define BMP_HEADER_SIZE 54       // Standard size for file header + info header
-#define BMP_COLOR_TABLE_SIZE 1024 // For 8-bit grayscale (256 colors * 4 bytes/color RGBA)
+#define BMP_TYPE 0x4D42
+#define BMP_HEADER_SIZE 54       // pr la taille ds images
+#define BMP_COLOR_TABLE_SIZE 1024 //colorsacle (gray)
 
-// Offsets within the 54-byte header
+
 #define OFFSET_WIDTH 18
 #define OFFSET_HEIGHT 22
 #define OFFSET_COLOR_DEPTH 28
@@ -22,61 +22,60 @@
 // Structures
 // -----------------------------------------------------------------------------
 
-// --- Structures for 8-bit Grayscale BMP ---
+//8-bit Grayscale BMP
 typedef struct {
-    unsigned char header[BMP_HEADER_SIZE]; // Combined file and info header
+    unsigned char header[BMP_HEADER_SIZE];
     unsigned char colorTable[BMP_COLOR_TABLE_SIZE];
     unsigned char *data;      // Pixel data (1 byte per pixel)
     unsigned int width;
     unsigned int height;
-    unsigned int colorDepth; // Should be 8
-    unsigned int dataSize;   // Size of the pixel data in bytes
+    unsigned int colorDepth; // ~8
+    unsigned int dataSize;
 } t_bmp8;
 
-// --- Structures for 24-bit Color BMP ---
-// BMP file header portion (first 14 bytes of the 54) - Optional explicit struct
+//24-bit Color BMP
+// BMP file header portion
 typedef struct {
-    uint16_t type;       // Signature ("BM")
-    uint32_t size;       // File size in bytes
-    uint16_t reserved1;  // Reserved (0)
-    uint16_t reserved2;  // Reserved (0)
-    uint32_t offset;     // Offset to pixel data
-} t_bmp_file_header; // Often combined with info header in practice
+    uint16_t type; // ("BM")
+    uint32_t size;
+    uint16_t reserved1;
+    uint16_t reserved2;
+    uint32_t offset;
+} t_bmp_file_header;
 
 // BMP info header portion (last 40 bytes of the 54)
 typedef struct {
-    uint32_t size;           // Size of this header (40 bytes)
-    int32_t width;           // Image width in pixels
-    int32_t height;          // Image height in pixels
-    uint16_t planes;         // Number of color planes (must be 1)
-    uint16_t bits;           // Bits per pixel (should be 24)
-    uint32_t compression;    // Compression type (0 for uncompressed)
-    uint32_t imagesize;      // Image size (may be 0 for uncompressed images)
-    int32_t xresolution;     // Horizontal resolution (pixels per meter)
-    int32_t yresolution;     // Vertical resolution (pixels per meter)
-    uint32_t ncolors;        // Number of colors (0 for default)
-    uint32_t importantcolors;// Important colors (0 = all)
+    uint32_t size; //(40 bytes)
+    int32_t width; // in pixels
+    int32_t height; // in pixels
+    uint16_t planes; // Number of color planes (1)
+    uint16_t bits; // (24)
+    uint32_t compression; // Compression type (0 for uncompressed)
+    uint32_t imagesize; // Image size (may be 0 for uncompressed images)
+    int32_t xresolution;
+    int32_t yresolution;
+    uint32_t ncolors; // Number of colors (0 for default)
+    uint32_t importantcolors;// Check
 } t_bmp_info_header;
 
-// Pixel structure for 24-bit (stores RGB in memory)
+// Pixel structure for 24-bit
 typedef struct {
-    uint8_t blue;  // Changed order to match common file read/write practice (BGR)
+    uint8_t blue; //(BGR)
     uint8_t green;
     uint8_t red;
-} t_pixel; // Size = 3 bytes
+} t_pixel; // 3 bytes
 
-// Main structure for 24-bit BMP image
+// for 24-bit BMP image
 typedef struct {
-    unsigned char header_bytes[BMP_HEADER_SIZE]; // Store the raw 54 header bytes
-    // Parsed values for convenience (can also use explicit header structs)
+    unsigned char header_bytes[BMP_HEADER_SIZE];
     int width;
     int height;
-    int colorDepth; // Should be 24
-    uint32_t dataOffset; // Parsed from header
-    t_pixel **data;  // 2D array of pixels (height x width)
+    int colorDepth; // (24)
+    uint32_t dataOffset;
+    t_pixel **data; //(height x width)
 } t_bmp24;
 
-// Structure for YUV color space (used in color equalization)
+//for YUV color space (used in color equalization)
 typedef struct {
     double y;
     double u;
@@ -88,7 +87,7 @@ typedef struct {
 // Utility Functions (Memory Allocation, Kernels)
 // -----------------------------------------------------------------------------
 
-// Allocate a 3x3 float kernel
+// Allocate 3x3 float kernel
 float **allocateKernel3x3(const float values[9]) {
     float **kernel = (float **)malloc(3 * sizeof(float *));
     if (!kernel) return NULL;
@@ -107,7 +106,7 @@ float **allocateKernel3x3(const float values[9]) {
     return kernel;
 }
 
-// Free a kernel of given size
+// Free kernel func
 void freeKernel(float **kernel, int size) {
     if (!kernel) return;
     for (int i = 0; i < size; i++) {
@@ -116,7 +115,7 @@ void freeKernel(float **kernel, int size) {
     free(kernel);
 }
 
-// Allocate pixel data for t_bmp24 (2D array)
+// Allocate pixel data func for t_bmp24 (2D array)
 t_pixel **bmp24_allocateDataPixels(int width, int height) {
     if (height <= 0 || width <= 0) {
         fprintf(stderr, "Error: Invalid dimensions for pixel allocation (%d x %d)\n", width, height);
@@ -128,24 +127,21 @@ t_pixel **bmp24_allocateDataPixels(int width, int height) {
         return NULL;
     }
     for (int i = 0; i < height; i++) {
-        // Allocate memory for each row
         pixels[i] = (t_pixel *)malloc(width * sizeof(t_pixel));
-        if (!pixels[i]) {
+        if (!pixels[i]) { //failsafe
             fprintf(stderr, "Error: Unable to allocate memory for pixel row %d.\n", i);
-            // Free already allocated rows before failing
             for (int j = 0; j < i; j++) {
                 free(pixels[j]);
             }
             free(pixels);
             return NULL;
         }
-        // Optional: Initialize pixels to black
         // memset(pixels[i], 0, width * sizeof(t_pixel));
     }
     return pixels;
 }
 
-// Free pixel data for t_bmp24
+// Free pixel data func for t_bmp24
 void bmp24_freeDataPixels(t_pixel **pixels, int height) {
     if (!pixels) return;
     for (int i = 0; i < height; i++) {
@@ -158,56 +154,49 @@ void bmp24_freeDataPixels(t_pixel **pixels, int height) {
 // BMP File I/O (Handling Padding)
 // -----------------------------------------------------------------------------
 
-// --- 8-bit I/O ---
+// 8-bit I/O :
 
-// Read pixel data for 8-bit image, handling padding
+
 int bmp8_readPixelData(t_bmp8 *img, FILE *file) {
-    // Row size in bytes (data only)
-    size_t data_row_size = img->width;
-    // Row stride: total bytes per row in file (must be multiple of 4)
-    size_t row_stride = (img->width + 3) & ~3; // Efficient way to round up to multiple of 4
+    size_t data_row_size = img->width; //( multiple of 4)
+    size_t row_stride = (img->width + 3) & ~3; //round up
     size_t padding = row_stride - data_row_size;
 
     img->data = (unsigned char *)malloc(img->dataSize);
     if (!img->data) {
         fprintf(stderr, "Error: Could not allocate memory for 8-bit pixel data.\n");
-        return 0; // Failure
+        return 0; // failure
     }
 
-    // BMP rows are stored bottom-up
+    // saved bottom-up
     for (int i = img->height - 1; i >= 0; i--) {
-        // Read the actual pixel data for the row
         unsigned char *row_ptr = img->data + (i * img->width);
         if (fread(row_ptr, 1, data_row_size, file) != data_row_size) {
             fprintf(stderr, "Error reading pixel data row (i=%d).\n", i);
             free(img->data);
             img->data = NULL;
-            return 0; // Failure
+            return 0; // failure
         }
-        // Skip padding bytes by seeking forward
         if (padding > 0) {
             fseek(file, padding, SEEK_CUR);
         }
     }
-    return 1; // Success
+    return 1; // success :D
 }
 
-// Write pixel data for 8-bit image, handling padding
+
 int bmp8_writePixelData(t_bmp8 *img, FILE *file) {
     size_t data_row_size = img->width;
     size_t row_stride = (img->width + 3) & ~3;
     size_t padding = row_stride - data_row_size;
-    unsigned char padding_bytes[3] = {0, 0, 0}; // Max padding is 3 bytes
-
-    // Write rows bottom-up
+    unsigned char padding_bytes[3] = {0, 0, 0}; // Max : 3 bytes
+    
     for (int i = img->height - 1; i >= 0; i--) {
         unsigned char *row_ptr = img->data + (i * img->width);
-        // Write pixel data
         if (fwrite(row_ptr, 1, data_row_size, file) != data_row_size) {
             fprintf(stderr, "Error writing pixel data row (i=%d).\n", i);
             return 0; // Failure
         }
-        // Write padding bytes
         if (padding > 0) {
             if (fwrite(padding_bytes, 1, padding, file) != padding) {
                  fprintf(stderr, "Error writing padding for row (i=%d).\n", i);
@@ -218,13 +207,14 @@ int bmp8_writePixelData(t_bmp8 *img, FILE *file) {
     return 1; // Success
 }
 
-// --- 24-bit I/O ---
 
-// Read pixel data for 24-bit image, handling padding
-int bmp24_readPixelData(t_bmp24 *img, FILE *file) {
-    // Row size in bytes (data only: width * 3 bytes/pixel)
+
+// 24-bit I/O :
+
+
+int bmp24_readPixelData(t_bmp24 *img, FILE *file) { //(data: width * 3 bytes/pixel)
     size_t data_row_size = img->width * sizeof(t_pixel);
-    // Row stride: total bytes per row in file (must be multiple of 4)
+    // multiple of 4
     size_t row_stride = (data_row_size + 3) & ~3;
     size_t padding = row_stride - data_row_size;
 
@@ -234,40 +224,33 @@ int bmp24_readPixelData(t_bmp24 *img, FILE *file) {
         return 0; // Failure
     }
 
-    // BMP rows are stored bottom-up
-    for (int i = img->height - 1; i >= 0; i--) {
-        // Read the actual pixel data for the row (BGR order)
+  
+    for (int i = img->height - 1; i >= 0; i--) // (BGR )
         if (fread(img->data[i], sizeof(t_pixel), img->width, file) != img->width) {
             fprintf(stderr, "Error reading pixel data row (i=%d).\n", i);
             bmp24_freeDataPixels(img->data, img->height);
             img->data = NULL;
             return 0; // Failure
         }
-        // Skip padding bytes
         if (padding > 0) {
             fseek(file, padding, SEEK_CUR);
         }
     }
-     // Note: Pixels are read in BGR order directly into t_pixel struct
-     // because we defined t_pixel as blue, green, red.
     return 1; // Success
 }
 
-// Write pixel data for 24-bit image, handling padding
+
 int bmp24_writePixelData(t_bmp24 *img, FILE *file) {
     size_t data_row_size = img->width * sizeof(t_pixel);
     size_t row_stride = (data_row_size + 3) & ~3;
     size_t padding = row_stride - data_row_size;
     unsigned char padding_bytes[3] = {0, 0, 0};
-
-    // Write rows bottom-up
-    for (int i = img->height - 1; i >= 0; i--) {
-        // Write pixel data (BGR order, matching t_pixel struct)
+    
+    for (int i = img->height - 1; i >= 0; i--) { //BGR
         if (fwrite(img->data[i], sizeof(t_pixel), img->width, file) != img->width) {
              fprintf(stderr, "Error writing pixel data row (i=%d).\n", i);
             return 0; // Failure
         }
-        // Write padding bytes
         if (padding > 0) {
             if (fwrite(padding_bytes, 1, padding, file) != padding) {
                 fprintf(stderr, "Error writing padding for row (i=%d).\n", i);
@@ -278,7 +261,7 @@ int bmp24_writePixelData(t_bmp24 *img, FILE *file) {
     return 1; // Success
 }
 
-// -----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // 8-bit Image Loading, Saving, Freeing, Info
 // -----------------------------------------------------------------------------
 t_bmp8 *bmp8_loadImage(const char *filename) {
@@ -295,8 +278,7 @@ t_bmp8 *bmp8_loadImage(const char *filename) {
         return NULL;
     }
     img->data = NULL; // Initialize data pointer
-
-    // Read the 54-byte header
+    
     if (fread(img->header, 1, BMP_HEADER_SIZE, file) != BMP_HEADER_SIZE) {
         fprintf(stderr, "Error: Failed to read BMP header.\n");
         fclose(file);
@@ -304,7 +286,7 @@ t_bmp8 *bmp8_loadImage(const char *filename) {
         return NULL;
     }
 
-    // Check BMP signature
+    //check Bmp signat
     if (img->header[0] != 'B' || img->header[1] != 'M') {
         fprintf(stderr, "Error: Invalid BMP signature.\n");
         fclose(file);
@@ -312,38 +294,36 @@ t_bmp8 *bmp8_loadImage(const char *filename) {
         return NULL;
     }
 
-    // Extract essential information using pointer casting and offsets
+
     img->width = *(unsigned int *)&img->header[OFFSET_WIDTH];
     img->height = *(unsigned int *)&img->header[OFFSET_HEIGHT];
     img->colorDepth = *(unsigned short *)&img->header[OFFSET_COLOR_DEPTH]; // Note: short (2 bytes)
     img->dataSize = *(unsigned int *)&img->header[OFFSET_IMAGE_SIZE];
     uint32_t dataOffset = *(uint32_t *)&img->header[OFFSET_DATA_OFFSET];
 
-    // Validate 8-bit grayscale
+
     if (img->colorDepth != 8) {
         fprintf(stderr, "Error: Image is not 8-bit (color depth = %u).\n", img->colorDepth);
         fclose(file);
         free(img);
         return NULL;
     }
-     // If dataSize is 0 in the header, calculate it (though it should be present for uncompressed)
+
     if (img->dataSize == 0) {
         size_t row_stride = (img->width + 3) & ~3;
         img->dataSize = row_stride * img->height;
-        // Optionally update the header field in memory if needed later
         // *(unsigned int*)&img->header[OFFSET_IMAGE_SIZE] = img->dataSize;
     }
 
 
-    // Read the color table (assuming it immediately follows the 54-byte header)
+    // Read color table 
     if (fread(img->colorTable, 1, BMP_COLOR_TABLE_SIZE, file) != BMP_COLOR_TABLE_SIZE) {
         fprintf(stderr, "Error: Failed to read BMP color table.\n");
         fclose(file);
         free(img);
         return NULL;
     }
-
-    // Seek to the pixel data offset and read pixel data (handles padding)
+    
     fseek(file, dataOffset, SEEK_SET);
     if (!bmp8_readPixelData(img, file)) {
         fprintf(stderr, "Error: Failed to read 8-bit pixel data.\n");
@@ -383,14 +363,11 @@ void bmp8_saveImage(const char *filename, t_bmp8 *img) {
         fclose(file);
         return;
     }
-
-    // Seek to data offset (might not be necessary if header+colortable = offset, but safer)
+    
     fseek(file, dataOffset, SEEK_SET);
-
-    // Write pixel data (handles padding)
+    
     if (!bmp8_writePixelData(img, file)) {
         fprintf(stderr, "Error writing 8-bit pixel data.\n");
-        // File might be corrupted at this point
     } else {
          printf("Saved 8-bit image successfully: %s\n", filename);
     }
@@ -416,7 +393,6 @@ void bmp8_printInfo(t_bmp8 *img) {
     printf("Color Depth: %u bits\n", img->colorDepth);
     printf("Data Size: %u bytes\n", img->dataSize);
     printf("Calculated Pixels: %u\n", img->width * img->height);
-    // You could add more info by parsing the header further if needed
 }
 
 // -----------------------------------------------------------------------------
@@ -445,7 +421,7 @@ t_bmp24 *bmp24_loadImage(const char *filename) {
         return NULL;
     }
 
-    // Check BMP signature
+    // Check BMP signat
     if (img->header_bytes[0] != 'B' || img->header_bytes[1] != 'M') {
         fprintf(stderr, "Error: Invalid BMP signature.\n");
         fclose(file);
@@ -453,21 +429,19 @@ t_bmp24 *bmp24_loadImage(const char *filename) {
         return NULL;
     }
 
-    // Extract info using offsets
+    // Extract info
     img->width = *(int32_t *)&img->header_bytes[OFFSET_WIDTH];
     img->height = *(int32_t *)&img->header_bytes[OFFSET_HEIGHT];
     img->colorDepth = *(uint16_t *)&img->header_bytes[OFFSET_COLOR_DEPTH];
     img->dataOffset = *(uint32_t *)&img->header_bytes[OFFSET_DATA_OFFSET];
     uint32_t compression = *(uint32_t *)&img->header_bytes[30]; // Compression offset
-
-     // Validate 24-bit uncompressed
+    
     if (img->colorDepth != 24 || compression != 0) {
         fprintf(stderr, "Error: Image is not 24-bit uncompressed (depth=%d, compression=%u).\n", img->colorDepth, compression);
         fclose(file);
         free(img);
         return NULL;
     }
-    // Basic dimension check
     if (img->width <= 0 || img->height <= 0) {
         fprintf(stderr, "Error: Invalid image dimensions (%d x %d).\n", img->width, img->height);
         fclose(file);
@@ -475,13 +449,11 @@ t_bmp24 *bmp24_loadImage(const char *filename) {
         return NULL;
     }
 
-
-    // Seek to the pixel data offset and read pixel data (handles padding)
+    
     fseek(file, img->dataOffset, SEEK_SET);
     if (!bmp24_readPixelData(img, file)) {
          fprintf(stderr, "Error: Failed to read 24-bit pixel data.\n");
         fclose(file);
-        // bmp24_readPixelData frees img->data on failure
         free(img);
         return NULL;
     }
@@ -502,20 +474,16 @@ void bmp24_saveImage(const char *filename, t_bmp24 *img) {
         return;
     }
 
-    // Write the raw 54-byte header stored in the struct
     if (fwrite(img->header_bytes, 1, BMP_HEADER_SIZE, file) != BMP_HEADER_SIZE) {
          fprintf(stderr, "Error writing BMP header.\n");
         fclose(file);
         return;
     }
-
-    // Seek to the data offset specified in the header
+    
     fseek(file, img->dataOffset, SEEK_SET);
-
-    // Write pixel data (handles padding)
+    
     if (!bmp24_writePixelData(img, file)) {
          fprintf(stderr, "Error writing 24-bit pixel data.\n");
-         // File might be corrupted
     } else {
         printf("Saved 24-bit image successfully: %s\n", filename);
     }
@@ -526,7 +494,7 @@ void bmp24_saveImage(const char *filename, t_bmp24 *img) {
 void bmp24_free(t_bmp24 *img) {
     if (!img) return;
     bmp24_freeDataPixels(img->data, img->height); // Free pixel data
-    free(img);                                   // Free the structure
+    free(img);   // Free the structure
 }
 
 void bmp24_printInfo(t_bmp24 *img) {
@@ -539,8 +507,6 @@ void bmp24_printInfo(t_bmp24 *img) {
     printf("Height: %d pixels\n", img->height);
     printf("Color Depth: %d bits\n", img->colorDepth);
     printf("Data Offset: %u\n", img->dataOffset);
-    // Add more info by parsing header_bytes if needed
-}
 
 
 // -----------------------------------------------------------------------------
@@ -576,7 +542,7 @@ void bmp8_threshold(t_bmp8 *img, int threshold) {
     }
 }
 
-// Apply convolution filter to 8-bit image (skips borders)
+// Apply convolution filter
 void bmp8_applyFilter(t_bmp8 *img, float **kernel, int kernelSize) {
     if (!img || !img->data || !kernel) return;
     int offset = kernelSize / 2;
@@ -597,14 +563,12 @@ void bmp8_applyFilter(t_bmp8 *img, float **kernel, int kernelSize) {
                 for (int kx = -offset; kx <= offset; kx++) {
                     int currentY = y + ky;
                     int currentX = x + kx;
-                    // Access original data from tempData using 1D indexing
                     sum += tempData[currentY * img->width + currentX] * kernel[ky + offset][kx + offset];
                 }
             }
             // Clamp result
             if (sum < 0) sum = 0;
             if (sum > 255) sum = 255;
-            // Write result to original data array
             img->data[y * img->width + x] = (unsigned char)round(sum);
         }
     }
@@ -631,11 +595,9 @@ void bmp24_grayscale(t_bmp24 *img) {
      if (!img || !img->data) return;
     for (int i = 0; i < img->height; i++) {
         for (int j = 0; j < img->width; j++) {
-            // Using luminance-preserving formula (common alternative to simple average)
              uint8_t gray = (uint8_t)(0.299 * img->data[i][j].red +
                                      0.587 * img->data[i][j].green +
                                      0.114 * img->data[i][j].blue);
-            // Simple average:
             // uint8_t gray = (img->data[i][j].red + img->data[i][j].green + img->data[i][j].blue) / 3;
             img->data[i][j].red = gray;
             img->data[i][j].green = gray;
@@ -659,7 +621,7 @@ void bmp24_brightness(t_bmp24 *img, int value) {
     }
 }
 
-// Apply convolution for a single 24-bit pixel (skips borders)
+// Apply convolution : single 24-bit pixel
 t_pixel bmp24_convolution(t_bmp24 *img, int y, int x, float **kernel, int kernelSize) {
     int offset = kernelSize / 2;
     double sumR = 0, sumG = 0, sumB = 0;
@@ -668,7 +630,6 @@ t_pixel bmp24_convolution(t_bmp24 *img, int y, int x, float **kernel, int kernel
         for (int kx = -offset; kx <= offset; kx++) {
             int currentY = y + ky;
             int currentX = x + kx;
-            // Check bounds just in case, although the calling loop should handle it
             if (currentY >= 0 && currentY < img->height && currentX >= 0 && currentX < img->width) {
                 t_pixel p = img->data[currentY][currentX]; // Read BGR
                 float k = kernel[ky + offset][kx + offset];
@@ -686,7 +647,7 @@ t_pixel bmp24_convolution(t_bmp24 *img, int y, int x, float **kernel, int kernel
 }
 
 
-// Apply convolution filter to 24-bit image (skips borders)
+//convolution filter to 24-bit 
 void bmp24_applyConvolutionFilter(t_bmp24 *img, float **kernel, int kernelSize) {
     if (!img || !img->data || !kernel) return;
     int offset = kernelSize / 2;
@@ -695,7 +656,7 @@ void bmp24_applyConvolutionFilter(t_bmp24 *img, float **kernel, int kernelSize) 
          return;
      }
 
-    // Create a temporary copy to read original pixel values from
+    // Create a temporary copy
     t_pixel **tempData = bmp24_allocateDataPixels(img->width, img->height);
     if (!tempData) {
         fprintf(stderr, "Error: Failed to allocate temp buffer for 24-bit convolution.\n");
@@ -705,17 +666,14 @@ void bmp24_applyConvolutionFilter(t_bmp24 *img, float **kernel, int kernelSize) 
         memcpy(tempData[i], img->data[i], img->width * sizeof(t_pixel));
     }
 
-    // Apply convolution to inner pixels, writing to original img->data
+    // img->data
     for (int y = offset; y < img->height - offset; y++) {
         for (int x = offset; x < img->width - offset; x++) {
-             // Pass the temporary data to read from, but store result in original
              img->data[y][x] = bmp24_convolution(img, y, x, kernel, kernelSize);
              // Correction: Need to read from the *copy* (tempData)
              // Recreate bmp24_convolution to accept the source buffer explicitly
              // Or simpler: just modify the original convolution to read from tempData
-             // Let's rewrite bmp24_convolution slightly
 
-             // --- Inline version reading from tempData ---
              double sumR = 0, sumG = 0, sumB = 0;
              for (int ky = -offset; ky <= offset; ky++) {
                  for (int kx = -offset; kx <= offset; kx++) {
@@ -729,7 +687,6 @@ void bmp24_applyConvolutionFilter(t_bmp24 *img, float **kernel, int kernelSize) 
              img->data[y][x].blue  = (uint8_t)(fmax(0, fmin(255, round(sumB))));
              img->data[y][x].green = (uint8_t)(fmax(0, fmin(255, round(sumG))));
              img->data[y][x].red   = (uint8_t)(fmax(0, fmin(255, round(sumR))));
-             // --- End Inline version ---
         }
     }
 
@@ -737,7 +694,6 @@ void bmp24_applyConvolutionFilter(t_bmp24 *img, float **kernel, int kernelSize) 
 }
 
 
-// Specific 24-bit filters (call applyConvolutionFilter)
 void bmp24_boxBlur(t_bmp24 *img) {
     const float values[9] = { 1/9.0f, 1/9.0f, 1/9.0f, 1/9.0f, 1/9.0f, 1/9.0f, 1/9.0f, 1/9.0f, 1/9.0f };
     float **k = allocateKernel3x3(values); if(k) { bmp24_applyConvolutionFilter(img, k, 3); freeKernel(k, 3); }
@@ -763,7 +719,7 @@ void bmp24_sharpen(t_bmp24 *img) {
 // Histogram Equalization (Part 3)
 // -----------------------------------------------------------------------------
 
-// --- 8-bit Equalization ---
+//              8-bit Equalization 
 
 // Compute histogram for 8-bit image
 unsigned int *bmp8_computeHistogram(t_bmp8 *img) {
@@ -780,7 +736,7 @@ unsigned int *bmp8_computeHistogram(t_bmp8 *img) {
     return hist;
 }
 
-// Compute cumulative distribution function (CDF) from histogram
+// CDF from histogram
 unsigned int *bmp8_computeCDF(unsigned int *hist) {
     if (!hist) return NULL;
     unsigned int *cdf = (unsigned int *)malloc(256 * sizeof(unsigned int));
@@ -795,7 +751,7 @@ unsigned int *bmp8_computeCDF(unsigned int *hist) {
     return cdf;
 }
 
-// Apply histogram equalization to 8-bit image
+// Apply histogram equalization
 void bmp8_equalize(t_bmp8 *img) {
     if (!img || !img->data) return;
 
@@ -807,7 +763,6 @@ void bmp8_equalize(t_bmp8 *img) {
         return;
     }
 
-    // Find the minimum non-zero CDF value
     unsigned int cdf_min = 0;
     for (int i = 0; i < 256; i++) {
         if (cdf[i] != 0) {
@@ -817,27 +772,25 @@ void bmp8_equalize(t_bmp8 *img) {
     }
 
     unsigned int num_pixels = img->width * img->height;
-    // Avoid division by zero if all pixels have the same value or image is empty
     if (num_pixels - cdf_min == 0) {
         fprintf(stderr, "Warning: Cannot equalize image with uniform color or only one color level present.\n");
         free(hist);
         free(cdf);
-        return; // No change needed
+        return; // No change
     }
 
 
-    // Create the equalization mapping table
     unsigned char hist_eq[256];
     double scale_factor = 255.0 / (num_pixels - cdf_min);
     for (int i = 0; i < 256; i++) {
-         if (cdf[i] >= cdf_min) { // Apply formula only if pixel value exists
+         if (cdf[i] >= cdf_min) { // Apply formula
             hist_eq[i] = (unsigned char)round((double)(cdf[i] - cdf_min) * scale_factor);
          } else {
              hist_eq[i] = 0; // Map non-occurring low values to 0
          }
     }
 
-    // Apply the mapping to the image data
+    // Apply mapping
     for (unsigned int i = 0; i < num_pixels; i++) {
         img->data[i] = hist_eq[img->data[i]];
     }
@@ -847,9 +800,9 @@ void bmp8_equalize(t_bmp8 *img) {
     printf("8-bit histogram equalization applied.\n");
 }
 
-// --- 24-bit Equalization (YUV method) ---
+// 24-bit Equalization  :
 
-// Helper: Convert RGB pixel to YUV
+
 t_yuv rgb_to_yuv(t_pixel p) {
     t_yuv yuv;
     double r = p.red;
@@ -861,7 +814,7 @@ t_yuv rgb_to_yuv(t_pixel p) {
     return yuv;
 }
 
-// Helper: Convert YUV pixel back to RGB
+
 t_pixel yuv_to_rgb(t_yuv yuv) {
     t_pixel p;
     double y = yuv.y;
@@ -871,14 +824,13 @@ t_pixel yuv_to_rgb(t_yuv yuv) {
     double g_f = y - 0.39465 * u - 0.58060 * v;
     double b_f = y + 2.03211 * u;
 
-    // Clamp and round to uint8_t
+
     p.red   = (uint8_t)fmax(0, fmin(255, round(r_f)));
     p.green = (uint8_t)fmax(0, fmin(255, round(g_f)));
     p.blue  = (uint8_t)fmax(0, fmin(255, round(b_f)));
     return p;
 }
 
-// Apply histogram equalization to 24-bit image via Y channel
 void bmp24_equalize(t_bmp24 *img) {
     if (!img || !img->data) return;
 
@@ -886,12 +838,11 @@ void bmp24_equalize(t_bmp24 *img) {
     int height = img->height;
     unsigned int num_pixels = width * height;
 
-    // 1. Convert to YUV and compute Y histogram
     t_yuv **yuv_data = (t_yuv **)malloc(height * sizeof(t_yuv *));
     unsigned int *y_hist = (unsigned int *)calloc(256, sizeof(unsigned int));
     if (!yuv_data || !y_hist) {
         fprintf(stderr, "Error: Failed to allocate memory for YUV data or Y histogram.\n");
-        free(yuv_data); // Might be partially allocated, handle carefully or use helper
+        free(yuv_data); 
         free(y_hist);
         return;
     }
@@ -900,7 +851,6 @@ void bmp24_equalize(t_bmp24 *img) {
         yuv_data[i] = (t_yuv *)malloc(width * sizeof(t_yuv));
         if (!yuv_data[i]) {
              fprintf(stderr, "Error: Failed to allocate memory for YUV row %d.\n", i);
-             // Free previously allocated rows and hist
              for(int k=0; k<i; k++) free(yuv_data[k]);
              free(yuv_data);
              free(y_hist);
@@ -908,17 +858,14 @@ void bmp24_equalize(t_bmp24 *img) {
         }
         for (int j = 0; j < width; j++) {
             yuv_data[i][j] = rgb_to_yuv(img->data[i][j]);
-            // Clamp Y for histogramming (0-255)
             uint8_t y_clamped = (uint8_t)fmax(0, fmin(255, round(yuv_data[i][j].y)));
             y_hist[y_clamped]++;
         }
     }
 
-    // 2. Compute CDF of Y
-    unsigned int *y_cdf = bmp8_computeCDF(y_hist); // Re-use 8-bit CDF function
+    unsigned int *y_cdf = bmp8_computeCDF(y_hist); 
     if (!y_cdf) {
         fprintf(stderr, "Error: Failed to compute Y channel CDF.\n");
-         // Free YUV data and hist
         for(int i=0; i<height; i++) free(yuv_data[i]);
         free(yuv_data);
         free(y_hist);
@@ -926,13 +873,11 @@ void bmp24_equalize(t_bmp24 *img) {
     }
 
 
-    // 3. Create Y equalization map
     unsigned int cdf_min_y = 0;
     for (int i = 0; i < 256; i++) { if (y_cdf[i] != 0) { cdf_min_y = y_cdf[i]; break; } }
 
     if (num_pixels - cdf_min_y == 0) {
          fprintf(stderr, "Warning: Cannot equalize Y channel (uniform luminance).\n");
-          // Free everything
          for(int i=0; i<height; i++) free(yuv_data[i]);
          free(yuv_data);
          free(y_hist);
@@ -951,22 +896,18 @@ void bmp24_equalize(t_bmp24 *img) {
 
     }
 
-    // 4. Apply equalization: Update Y, Convert back to RGB
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            // Get original Y, find mapped value
              uint8_t y_original_clamped = (uint8_t)fmax(0, fmin(255, round(yuv_data[i][j].y)));
              double y_new = y_map[y_original_clamped];
 
-            // Create new YUV pixel with original U, V
             t_yuv yuv_new = { y_new, yuv_data[i][j].u, yuv_data[i][j].v };
 
-            // Convert back to RGB and store in original image
+            // Convert back to RGB
             img->data[i][j] = yuv_to_rgb(yuv_new);
         }
     }
 
-    // 5. Free temporary data
     for(int i=0; i<height; i++) free(yuv_data[i]);
     free(yuv_data);
     free(y_hist);
@@ -1008,18 +949,17 @@ int main() {
     t_bmp24 *img24 = NULL;
     char filepath[256];
     int choice;
-    int value; // For brightness/threshold
+    int value; // brightness/threshold
 
     while (1) {
         printMainMenu();
         if (scanf("%d", &choice) != 1) {
-            // Clear input buffer on invalid input
             while (getchar() != '\n');
             choice = -1; // Invalid choice
         }
-        getchar(); // Consume the newline character left by scanf
+        getchar(); 
 
-        // --- Image Management ---
+        // Image Management 
         if (choice == 1) { // Load 8-bit
             if (img8) { bmp8_free(img8); img8 = NULL; }
             if (img24) { bmp24_free(img24); img24 = NULL; }
@@ -1055,7 +995,7 @@ int main() {
             else if (img24) bmp24_printInfo(img24);
             else printf("No image loaded.\n");
         }
-        // --- Basic Operations ---
+        // Basic Operations
         else if (choice == 5) { // Negative
             if (img8) { bmp8_negative(img8); printf("8-bit negative applied.\n"); }
             else if (img24) { bmp24_negative(img24); printf("24-bit negative applied.\n"); }
@@ -1118,7 +1058,7 @@ int main() {
 
                 if (kernel) {
                     if (img8) bmp8_applyFilter(img8, kernel, 3);
-                    else if (img24) bmp24_applyConvolutionFilter(img24, kernel, 3); // Use the specific 24-bit wrapper
+                    else if (img24) bmp24_applyConvolutionFilter(img24, kernel, 3); //24-bit wrapper
                     printf("%s filter applied.\n", filter_name);
                     freeKernel(kernel, 3);
                 } else {
@@ -1126,7 +1066,7 @@ int main() {
                 }
             }
         }
-         // --- Histogram Equalization ---
+         // Histogram Equalization
          else if (choice == 14) { // Equalize
             if (img8) {
                 bmp8_equalize(img8);
@@ -1136,12 +1076,12 @@ int main() {
                 printf("No image loaded.\n");
             }
         }
-        // --- Quit ---
+        // Quit
         else if (choice == 0) {
             printf("Exiting...\n");
-            break; // Exit the while loop
+            break; // Exit while loop
         }
-        // --- Invalid Choice ---
+        //Invalid Choice
         else {
             printf("Invalid choice. Please try again.\n");
         }
