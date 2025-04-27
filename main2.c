@@ -4,9 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-// ----------------------------------------
-// Constants
-// -----------------------------------------
+
 #define BMP_TYPE 0x4D42
 #define BMP_HEADER_SIZE 54       // pr la taille ds images
 #define BMP_COLOR_TABLE_SIZE 1024 //colorsacle (gray)
@@ -18,7 +16,7 @@
 #define OFFSET_IMAGE_SIZE 34
 #define OFFSET_DATA_OFFSET 10
 
-// --------------------------------------------------------
+
 // Structures
 // ------------------------------------------------------
 
