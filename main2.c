@@ -4,9 +4,9 @@
 #include <string.h>
 #include <math.h>
 
-// -----------------------------------------------------------------------------
+// ----------------------------------------
 // Constants
-// -----------------------------------------------------------------------------
+// -----------------------------------------
 #define BMP_TYPE 0x4D42
 #define BMP_HEADER_SIZE 54       // pr la taille ds images
 #define BMP_COLOR_TABLE_SIZE 1024 //colorsacle (gray)
@@ -18,9 +18,9 @@
 #define OFFSET_IMAGE_SIZE 34
 #define OFFSET_DATA_OFFSET 10
 
-// -----------------------------------------------------------------------------
+// --------------------------------------------------------
 // Structures
-// -----------------------------------------------------------------------------
+// ------------------------------------------------------
 
 //8-bit Grayscale BMP
 typedef struct {
@@ -83,9 +83,9 @@ typedef struct {
 } t_yuv;
 
 
-// -----------------------------------------------------------------------------
+// -----------------------------------------
 // Utility Functions (Memory Allocation, Kernels)
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------
 
 // Allocate 3x3 float kernel
 float **allocateKernel3x3(const float values[9]) {
@@ -150,9 +150,9 @@ void bmp24_freeDataPixels(t_pixel **pixels, int height) {
     free(pixels);
 }
 
-// -----------------------------------------------------------------------------
-// BMP File I/O (Handling Padding)
-// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------
+//         BMP File I/O (Handling Padding)
+// -----------------------------------------------------------
 
 // 8-bit I/O :
 
@@ -261,9 +261,9 @@ int bmp24_writePixelData(t_bmp24 *img, FILE *file) {
     return 1; // Success
 }
 
-// ---------------------------------------------------------------------------
-// 8-bit Image Loading, Saving, Freeing, Info
-// -----------------------------------------------------------------------------
+// ---------------------------------------------------
+//      8-bit Image Loading, Saving, Freeing, Info
+// ----------------------------------------------
 t_bmp8 *bmp8_loadImage(const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -395,9 +395,9 @@ void bmp8_printInfo(t_bmp8 *img) {
     printf("Calculated Pixels: %u\n", img->width * img->height);
 }
 
-// -----------------------------------------------------------------------------
+// ---------------------------------------
 // 24-bit Image Loading, Saving, Freeing, Info
-// -----------------------------------------------------------------------------
+// -------------------------------------
 t_bmp24 *bmp24_loadImage(const char *filename) {
      FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -509,9 +509,9 @@ void bmp24_printInfo(t_bmp24 *img) {
     printf("Data Offset: %u\n", img->dataOffset);
 
 
-// -----------------------------------------------------------------------------
+// --------------------------------------
 // Image Processing Functions (8-bit)
-// -----------------------------------------------------------------------------
+// --------------------------------------
 
 void bmp8_negative(t_bmp8 *img) {
     if (!img || !img->data) return;
@@ -576,9 +576,9 @@ void bmp8_applyFilter(t_bmp8 *img, float **kernel, int kernelSize) {
     free(tempData);
 }
 
-// -----------------------------------------------------------------------------
+// ------------------------------------------------
 // Image Processing Functions (24-bit)
-// -----------------------------------------------------------------------------
+// ----------------------------
 
 void bmp24_negative(t_bmp24 *img) {
     if (!img || !img->data) return;
@@ -670,9 +670,6 @@ void bmp24_applyConvolutionFilter(t_bmp24 *img, float **kernel, int kernelSize) 
     for (int y = offset; y < img->height - offset; y++) {
         for (int x = offset; x < img->width - offset; x++) {
              img->data[y][x] = bmp24_convolution(img, y, x, kernel, kernelSize);
-             // Correction: Need to read from the *copy* (tempData)
-             // Recreate bmp24_convolution to accept the source buffer explicitly
-             // Or simpler: just modify the original convolution to read from tempData
 
              double sumR = 0, sumG = 0, sumB = 0;
              for (int ky = -offset; ky <= offset; ky++) {
@@ -715,9 +712,9 @@ void bmp24_sharpen(t_bmp24 *img) {
     float **k = allocateKernel3x3(values); if(k) { bmp24_applyConvolutionFilter(img, k, 3); freeKernel(k, 3); }
 }
 
-// -----------------------------------------------------------------------------
+// ---------------------------------------------
 // Histogram Equalization (Part 3)
-// -----------------------------------------------------------------------------
+// ----------------------
 
 //              8-bit Equalization 
 
@@ -917,9 +914,9 @@ void bmp24_equalize(t_bmp24 *img) {
 }
 
 
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------
 // Main Menu and Program Flow
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------
 
 void printMainMenu() {
     printf("\n--- Image Processing Menu ---\n");
@@ -1037,7 +1034,7 @@ int main() {
                 printf("No image loaded.\n");
             }
         }
-        // --- Convolution Filters ---
+        //Convolution Filters
         else if (choice >= 9 && choice <= 13) { // Filters
             if (!img8 && !img24) {
                 printf("No image loaded.\n");
@@ -1085,9 +1082,9 @@ int main() {
         else {
             printf("Invalid choice. Please try again.\n");
         }
-    } // End while loop
+    } // End whiloop
 
-    // Clean up before exiting
+    // exiting
     if (img8) bmp8_free(img8);
     if (img24) bmp24_free(img24);
 
