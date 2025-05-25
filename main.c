@@ -14,13 +14,13 @@
 #define OFFSET_DATA_OFFSET 10   
 
 typedef struct {
-    unsigned char header[BMP_HEADER_SIZE];           // Raw bytes of the BMP header (54 bytes)
-    unsigned char colorTable[BMP_COLOR_TABLE_SIZE];  // Color palette for 8-bit images (256 colors, 4 bytes each)
-    unsigned char *data;                             // Pointer to the pixel data (1 byte per pixel)
-    unsigned int width;                              // Image width in pixels
-    unsigned int height;                             // Image height in pixels
-    unsigned int colorDepth;                         // Bits per pixel (should be 8 )
-    unsigned int dataSize;                           // Total size of the pixel data in bytes
+    unsigned char header[BMP_HEADER_SIZE];           
+    unsigned char colorTable[BMP_COLOR_TABLE_SIZE];  
+    unsigned char *data;                             
+    unsigned int width;                              
+    unsigned int height;                             
+    unsigned int colorDepth;                         
+    unsigned int dataSize;                           
 } t_bmp8;
 
 
@@ -34,17 +34,17 @@ typedef struct {
 
 
 typedef struct {
-    uint32_t size;            // Size of this header (40 bytes)
-    int32_t  width;           // Image width in pixels
-    int32_t  height;          // Image height in pixels
-    uint16_t planes;          // Number of color planes (must be 1)
-    uint16_t bits;            // Bits per pixel (1, 4, 8, 16, 24, 32)
-    uint32_t compression;     // Compression type 
-    uint32_t imagesize;       // Size of image data in bytes
-    int32_t  xresolution;     // Horizontal resolution (pixels per meter)
-    int32_t  yresolution;     // Vertical resolution (pixels per meter)
-    uint32_t ncolors;         // Number of colors in the color palette (0 for 24-bit)
-    uint32_t importantcolors; // Number of important colors (0 means all are important)
+    uint32_t size;            
+    int32_t  width;           
+    int32_t  height;          
+    uint16_t planes;          
+    uint16_t bits;            
+    uint32_t compression;     
+    uint32_t imagesize;      
+    int32_t  xresolution;     
+    int32_t  yresolution;     
+    uint32_t ncolors;         
+    uint32_t importantcolors;
 } t_bmp_info_header;
 
 
@@ -58,11 +58,11 @@ typedef struct {
 
 typedef struct {
     unsigned char header_bytes[BMP_HEADER_SIZE]; 
-    int width;                                   // Image width in pixels
-    int height;                                  // Image height in pixels
-    int colorDepth;                              // Bits per pixel 
-    uint32_t dataOffset;                         // Offset to the start of pixel data
-    t_pixel **data;                              // Pointer to a 2D array of pixels (t_pixel)
+    int width;                                   
+    int height;                                 
+    int colorDepth;                            
+    uint32_t dataOffset;                      
+    t_pixel **data;                           
 } t_bmp24;
 
 
